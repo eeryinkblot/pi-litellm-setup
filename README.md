@@ -36,7 +36,7 @@ Andere Provider in deiner `models.json` bleiben dabei erhalten. Vor jeder Änder
 ## Wie es funktioniert
 
 - `~/.pi/agent` meint unter Windows `%USERPROFILE%\.pi\agent`, also den Ordner, den pi selbst nutzt. Das gilt auch dann, wenn `$HOME` in Git Bash woandershin zeigt.
-- Der Key steht ausschließlich in `~/.pi/agent/litellm.env`. In `models.json` steht nur ein Befehl, mit dem pi den Key bei jedem Request aus dieser Datei liest. pi führt diesen Befehl in Bash aus, unter Windows in Git Bash. Du musst also nichts in `~/.zshrc` oder `~/.bashrc` eintragen.
+- Der Key steht in `~/.pi/agent/litellm.env` (für den Sync) und in pis eigenem Credential-Speicher `~/.pi/agent/auth.json`. Dort liest pi ihn direkt, ohne Shell-Befehl. Das funktioniert auch unter Windows, wenn Git nicht unter `Program Files` installiert ist. Beide Dateien sind nur für dich lesbar.
 - Das Gateway wird als OpenAI-kompatibler Endpunkt (`/v1`) angesprochen.
 - Liefert das Gateway unter `/model/info` Metadaten (Kontextgröße, Vision, Reasoning), werden sie übernommen. Sonst nutzt pi seine Standardwerte (128K Kontext, 16K Ausgabe, keine Bilder, kein Thinking).
 
@@ -49,9 +49,10 @@ Andere Provider in deiner `models.json` bleiben dabei erhalten. Vor jeder Änder
 | Modelle fehlen in `/model` | `~/.pi/agent/litellm-sync.sh` ausführen, danach `/model` neu öffnen |
 | `SSL certificate problem` | Firmen-Proxy mit eigener CA: CA-Zertifikat als PEM per `export CURL_CA_BUNDLE=...` angeben |
 | Windows: pi hängt beim Start | Git ist zu alt (`git --version` < 2.47). Mit `git update-git-for-windows` aktualisieren, danach ein neues Git-Bash-Fenster öffnen. Vorübergehend hilft `winpty pi`. |
+| `Failed to resolve API key for provider "litellm"` | Veraltete Einrichtung: `git pull` im Repo, danach `~/.pi/agent/litellm-sync.sh` ausführen |
 | Windows: `pi: command not found` | Neues Git-Bash-Fenster öffnen (Scoop hat den PATH erweitert) |
 | Windows: pi nutzt die falsche Bash | In `%USERPROFILE%\.pi\agent\settings.json` `shellPath` auf `...\Git\bin\bash.exe` setzen |
-| Key ändern | `~/.pi/agent/litellm.env` bearbeiten. Ein Neustart von pi reicht. |
+| Key ändern | `~/.pi/agent/litellm.env` bearbeiten, danach `~/.pi/agent/litellm-sync.sh` ausführen und pi neu starten. |
 
 Prüfen ohne TUI:
 
@@ -66,4 +67,4 @@ Der GitHub-Actions-Workflow `Smoke-Test` führt `install.sh` unter Windows (Git 
 
 ## Sicherheit
 
-`litellm.env` und `models.json` stehen in `.gitignore`. Bitte niemals einen Key committen.
+`litellm.env`, `auth.json` und `models.json` liegen außerhalb des Repos in `~/.pi/agent`. Bitte niemals einen Key committen.

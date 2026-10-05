@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Holt die Modellliste vom LiteLLM-Proxy und trägt sie als Provider "litellm"
 # in <agent-dir>/models.json ein. Andere Provider in der Datei bleiben erhalten.
-# Der Key bleibt in litellm.env und wird von pi bei jedem Request daraus gelesen.
+# Den Key aus litellm.env trägt es in <agent-dir>/auth.json ein, wo pi ihn direkt liest.
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -36,20 +36,29 @@ else
   MODELS=$("${CURL[@]}" "$BASE/v1/models" </dev/null | jq '[.data[] | {id: .id, name: (.id + " (LiteLLM)")}]')
 fi
 
-EXISTING='{}'
-if [[ -f "$AGENT_DIR/models.json" ]]; then
-  cp "$AGENT_DIR/models.json" "$AGENT_DIR/models.json.bak"
-  EXISTING=$(cat "$AGENT_DIR/models.json")
-fi
-# pi führt den apiKey-Befehl in Bash aus (unter Windows: Git Bash), daher absoluter Unix-Pfad
-API_KEY_CMD="!eval \"\$(tr -d '\\r' < '$ENV_FILE')\" && printf %s \"\$LITELLM_API_KEY\""
-jq --arg url "$BASE/v1" --arg key "$API_KEY_CMD" --argjson models "$MODELS" '.providers.litellm = {
+# JSON-Datei per jq-Filter ändern; andere Einträge bleiben erhalten, vorher wird ein .bak angelegt
+update_json() {
+  local file="$1"; shift
+  local current='{}'
+  if [[ -f "$file" ]]; then cp "$file" "$file.bak"; current=$(cat "$file"); fi
+  ( umask 077; jq "$@" <<<"$current" > "$file.tmp" )
+  mv "$file.tmp" "$file"
+}
+
+update_json "$AGENT_DIR/models.json" --arg url "$BASE/v1" --argjson models "$MODELS" '.providers.litellm = {
     baseUrl: $url,
     api: "openai-completions",
-    apiKey: $key,
     models: $models
-  }' <<<"$EXISTING" > "$AGENT_DIR/models.json.tmp"
-mv "$AGENT_DIR/models.json.tmp" "$AGENT_DIR/models.json"
+  }'
+
+# Key direkt in pis Credential-Speicher: braucht keine Shell. Ein Shell-Befehl als apiKey
+# scheitert unter Windows, wenn Git nicht unter Program Files liegt (pi ignoriert dafür shellPath).
+# In auth.json steht "$" für Umgebungsvariablen, daher $ -> $$ und führendes ! -> $!
+update_json "$AGENT_DIR/auth.json" --arg key "$LITELLM_API_KEY" '.litellm = {
+    type: "api_key",
+    key: ($key | gsub("\\$"; "$$") | if startswith("!") then "$" + . else . end)
+  }'
+chmod 600 "$AGENT_DIR/auth.json"
 
 echo "models.json aktualisiert mit $(jq length <<<"$MODELS" | tr -d '\r') Modellen:"
 jq -r '.[].id' <<<"$MODELS" | tr -d '\r' | sed 's/^/  - litellm\//'

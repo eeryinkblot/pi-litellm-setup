@@ -44,5 +44,16 @@ jobs:
           echo "$OUT"
           [[ "$OUT" == *OK* ]]
 
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            # Wie bei Git außerhalb von Program Files (pro Benutzer oder über Scoop installiert):
+            # pi findet dann keine Bash – der Key muss trotzdem ankommen
+            echo "--- Anfrage ohne auffindbare Git Bash"
+            OUT=$(env ProgramFiles='C:\nowhere' 'ProgramFiles(x86)=C:\nowhere' \
+              PATH="$(cygpath -u "$USERPROFILE")/scoop/shims:/c/Windows/System32" \
+              pi -p --offline --no-session --no-tools --model 'litellm/Mock-Model' "hi" </dev/null 2>&1 | tr -d '\r')
+            echo "$OUT"
+            [[ "$OUT" == *OK* ]]
+          fi
+
           echo "--- Zweiter Lauf (Key bleibt erhalten)"
           ./install.sh </dev/null | grep 'existiert bereits'
