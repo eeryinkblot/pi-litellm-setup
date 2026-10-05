@@ -7,6 +7,21 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 step() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
+# Ältere Git-for-Windows-Versionen starten mintty ohne Pseudokonsole – pi hängt dort beim Start.
+# 2.47 ist die älteste Version, mit der es bei uns nachweislich läuft.
+MIN_GIT_MAJOR=2 MIN_GIT_MINOR=47
+check_git_version() {
+  local v major minor
+  v=$(git --version | sed -E 's/^git version ([0-9]+)\.([0-9]+).*/\1 \2/')
+  read -r major minor <<<"$v"
+  if (( major < MIN_GIT_MAJOR || (major == MIN_GIT_MAJOR && minor < MIN_GIT_MINOR) )); then
+    printf '\n\033[33mWarnung: Git %s.%s ist zu alt (mindestens %s.%s).\033[0m\n' "$major" "$minor" "$MIN_GIT_MAJOR" "$MIN_GIT_MINOR" >&2
+    echo "pi bleibt im Git-Bash-Fenster sonst beim Start hängen. Aktualisieren mit:" >&2
+    echo "  git update-git-for-windows" >&2
+    echo "Danach ein neues Git-Bash-Fenster öffnen." >&2
+  fi
+}
+
 step "Voraussetzungen prüfen ($OS)"
 # Paketmanager lesen von /dev/null, damit sie keine Eingaben für die Zugangsdaten-Abfrage verschlucken
 case $OS in
@@ -21,6 +36,7 @@ case $OS in
     fi
     command -v jq >/dev/null || scoop install jq
     command -v pi >/dev/null || scoop install pi-coding-agent
+    check_git_version
     ;;
   mac)
     command -v brew >/dev/null || { echo "Bitte Homebrew installieren: https://brew.sh" >&2; exit 1; }

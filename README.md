@@ -4,7 +4,7 @@ Bindet den [pi Coding Agent](https://pi.dev) an unser LiteLLM-Gateway an, damit 
 
 ## Schnellstart
 
-Unter Windows in **Git Bash** (auch für macOS und Linux geeignet):
+Unter Windows in **Git Bash** mit **Git for Windows 2.47 oder neuer** (auch für macOS und Linux geeignet):
 
 ```bash
 git clone https://github.com/eeryinkblot/pi-litellm-setup.git
@@ -48,6 +48,7 @@ Andere Provider in deiner `models.json` bleiben dabei erhalten. Vor jeder Änder
 | `401` / `403` | Key in `~/.pi/agent/litellm.env` prüfen |
 | Modelle fehlen in `/model` | `~/.pi/agent/litellm-sync.sh` ausführen, danach `/model` neu öffnen |
 | `SSL certificate problem` | Firmen-Proxy mit eigener CA: CA-Zertifikat als PEM per `export CURL_CA_BUNDLE=...` angeben |
+| Windows: pi hängt beim Start | Git ist zu alt (`git --version` < 2.47). Mit `git update-git-for-windows` aktualisieren, danach ein neues Git-Bash-Fenster öffnen. Vorübergehend hilft `winpty pi`. |
 | Windows: `pi: command not found` | Neues Git-Bash-Fenster öffnen (Scoop hat den PATH erweitert) |
 | Windows: pi nutzt die falsche Bash | In `%USERPROFILE%\.pi\agent\settings.json` `shellPath` auf `...\Git\bin\bash.exe` setzen |
 | Key ändern | `~/.pi/agent/litellm.env` bearbeiten. Ein Neustart von pi reicht. |
