@@ -8,27 +8,28 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 step() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
 step "Voraussetzungen prüfen ($OS)"
+# Paketmanager lesen von /dev/null, damit sie keine Eingaben für die Zugangsdaten-Abfrage verschlucken
 case $OS in
   windows)
     SCOOP_DIR="$(cygpath -u "${SCOOP:-$USERPROFILE\\scoop}")"
     export PATH="$SCOOP_DIR/shims:$PATH"
-    scoop() { powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "scoop $*"; }
+    scoop() { powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "scoop $*" </dev/null; }
     if [[ ! -d "$SCOOP_DIR/shims" ]]; then
       echo "Scoop wird installiert …"
       powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \
-        "Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force; Invoke-RestMethod get.scoop.sh | Invoke-Expression"
+        "Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force; Invoke-RestMethod get.scoop.sh | Invoke-Expression" </dev/null
     fi
     command -v jq >/dev/null || scoop install jq
     command -v pi >/dev/null || scoop install pi-coding-agent
     ;;
   mac)
     command -v brew >/dev/null || { echo "Bitte Homebrew installieren: https://brew.sh" >&2; exit 1; }
-    command -v jq >/dev/null || brew install jq
-    command -v pi >/dev/null || brew install pi-coding-agent
+    command -v jq >/dev/null || brew install jq </dev/null
+    command -v pi >/dev/null || brew install pi-coding-agent </dev/null
     ;;
   linux)
     command -v jq >/dev/null || { echo "Bitte jq installieren (z. B. apt install jq)." >&2; exit 1; }
-    command -v pi >/dev/null || npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+    command -v pi >/dev/null || npm install -g --ignore-scripts @earendil-works/pi-coding-agent </dev/null
     ;;
 esac
 echo "pi $(pi --version | tr -d '\r')"
