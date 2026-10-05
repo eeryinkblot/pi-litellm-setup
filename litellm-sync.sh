@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 # Holt die Modellliste vom LiteLLM-Proxy und trägt sie als Provider "litellm"
-# in ~/.pi/agent/models.json ein. Andere Provider in der Datei bleiben erhalten.
+# in <agent-dir>/models.json ein. Andere Provider in der Datei bleiben erhalten.
 # Der Key bleibt in litellm.env und wird von pi bei jedem Request daraus gelesen.
 set -euo pipefail
-DIR="$HOME/.pi/agent"
-ENV_FILE="$DIR/litellm.env"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 for cmd in curl jq; do
-  command -v "$cmd" >/dev/null || { echo "Fehlt: $cmd (brew install $cmd)" >&2; exit 1; }
+  command -v "$cmd" >/dev/null || { echo "Fehlt: $cmd – zuerst ./install.sh ausführen." >&2; exit 1; }
 done
 [[ -f "$ENV_FILE" ]] || { echo "Fehlt: $ENV_FILE – zuerst ./install.sh ausführen." >&2; exit 1; }
-. "$ENV_FILE"
+load_env
 BASE="${LITELLM_BASE_URL%/}"; BASE="${BASE%/v1}"
 [[ "$LITELLM_API_KEY" == HIER-* || "$BASE" == *HIER-* ]] && { echo "Bitte zuerst $ENV_FILE ausfüllen." >&2; exit 1; }
 
 AUTH="Authorization: Bearer $LITELLM_API_KEY"
 # /model/info liefert (falls gepflegt) Kontextgröße, Vision, Reasoning; Fallback auf /v1/models
-if INFO=$(curl -fsS -H "$AUTH" "$BASE/model/info" 2>/dev/null) && [[ $(jq '.data | length' <<<"$INFO") -gt 0 ]]; then
+if INFO=$(curl -fsS -H "$AUTH" "$BASE/model/info" 2>/dev/null) \
+   && [[ $(jq '.data | length' <<<"$INFO" | tr -d '\r') -gt 0 ]]; then
   MODELS=$(jq '[.data | unique_by(.model_name)[] | {
       id: .model_name,
       name: (.model_name + " (LiteLLM)"),
@@ -31,17 +31,19 @@ else
 fi
 
 EXISTING='{}'
-if [[ -f "$DIR/models.json" ]]; then
-  cp "$DIR/models.json" "$DIR/models.json.bak"
-  EXISTING=$(cat "$DIR/models.json")
+if [[ -f "$AGENT_DIR/models.json" ]]; then
+  cp "$AGENT_DIR/models.json" "$AGENT_DIR/models.json.bak"
+  EXISTING=$(cat "$AGENT_DIR/models.json")
 fi
-jq --arg url "$BASE/v1" --argjson models "$MODELS" '.providers.litellm = {
+# pi führt den apiKey-Befehl in Bash aus (unter Windows: Git Bash), daher absoluter Unix-Pfad
+API_KEY_CMD="!eval \"\$(tr -d '\\r' < '$ENV_FILE')\" && printf %s \"\$LITELLM_API_KEY\""
+jq --arg url "$BASE/v1" --arg key "$API_KEY_CMD" --argjson models "$MODELS" '.providers.litellm = {
     baseUrl: $url,
     api: "openai-completions",
-    apiKey: "!. \"$HOME/.pi/agent/litellm.env\" && printf %s \"$LITELLM_API_KEY\"",
+    apiKey: $key,
     models: $models
-  }' <<<"$EXISTING" > "$DIR/models.json.tmp"
-mv "$DIR/models.json.tmp" "$DIR/models.json"
+  }' <<<"$EXISTING" > "$AGENT_DIR/models.json.tmp"
+mv "$AGENT_DIR/models.json.tmp" "$AGENT_DIR/models.json"
 
-echo "models.json aktualisiert mit $(jq length <<<"$MODELS") Modellen:"
-jq -r '.[].id' <<<"$MODELS" | sed 's/^/  - litellm\//'
+echo "models.json aktualisiert mit $(jq length <<<"$MODELS" | tr -d '\r') Modellen:"
+jq -r '.[].id' <<<"$MODELS" | tr -d '\r' | sed 's/^/  - litellm\//'

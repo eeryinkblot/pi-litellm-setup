@@ -1,0 +1,48 @@
+name: Smoke-Test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Der Runner läuft als Admin; der Scoop-Installer braucht dafür -RunAsAdmin.
+      # Auf normalen Rechnern installiert install.sh Scoop selbst.
+      - name: Scoop vorinstallieren
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+
+      - name: install.sh gegen LiteLLM-Mock
+        shell: bash
+        env:
+          KEY: sk-mock_123&x
+        run: |
+          set -euo pipefail
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            PY=python; export PATH="$(cygpath -u "$USERPROFILE")/scoop/shims:$PATH"
+          else
+            PY=python3
+          fi
+          $PY tests/mock_litellm.py 8770 "$KEY" &
+          sleep 2
+
+          printf 'http://127.0.0.1:8770\n%s\n' "$KEY" | ./install.sh
+
+          echo "--- settings.json"; cat ~/.pi/agent/settings.json 2>/dev/null || true
+          echo "--- Anfrage über pi"
+          OUT=$(pi -p --offline --no-session --no-tools --model 'litellm/Mock-Model' "hi" </dev/null 2>&1 | tr -d '\r')
+          echo "$OUT"
+          [[ "$OUT" == *OK* ]]
+
+          echo "--- Zweiter Lauf (Key bleibt erhalten)"
+          ./install.sh </dev/null | grep 'existiert bereits'
