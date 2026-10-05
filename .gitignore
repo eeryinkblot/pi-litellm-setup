@@ -1,0 +1,4 @@
+# Niemals committen – enthält den persönlichen API-Key
+litellm.env
+models.json
+*.bak
